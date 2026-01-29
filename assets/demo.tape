@@ -1,4 +1,4 @@
-# VHS Demo Script for Surge
+# VHS Demo Script for Pulse
 # Run: vhs demo.tape
 
 Output assets/demo.gif
@@ -14,8 +14,8 @@ Set Padding 0
 Set WindowBar Colorful
 Set Framerate 60
 
-# --- Launch Surge ---
-Type "./surge"
+# --- Launch Pulse ---
+Type "./pulse"
 Enter
 Sleep 3s
 

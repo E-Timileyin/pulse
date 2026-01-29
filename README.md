@@ -16,7 +16,6 @@ Pulse is a blazing fast, open-source terminal (TUI) download manager built in Go
 
 [![Get it on GitHub](https://img.shields.io/badge/Get%20it%20on-GitHub-blue?style=for-the-badge&logo=github)](https://github.com/pulse-downloader/pulse/releases/latest)
 
-
 ### Homebrew (macOS/Linux)
 
 ```bash
@@ -42,6 +41,7 @@ go build -o pulse .
 
 - **High-speed Downloads** with multi-connection support
 - **Beautiful TUI** built with Bubble Tea & Lipgloss
+- **YouTube Support** with video quality selection
 - **Pause/Resume** downloads seamlessly
 - **Real-time Progress** with speed graphs and ETA
 - **Auto-retry** on connection failures
@@ -70,27 +70,28 @@ pulse get --batch urls.txt
 
 ## Benchmarks
 
-| Tool | Time | Speed | vs Pulse |
-|------|------|-------|----------|
-| **Pulse** | 28.93s | **35.40 MB/s** | — |
-| aria2c | 40.04s | 25.57 MB/s | 1.38× slower |
-| curl | 57.57s | 17.79 MB/s | 1.99× slower |
-| wget | 61.81s | 16.57 MB/s | 2.14× slower |
+| Tool      | Time   | Speed          | vs Pulse     |
+| --------- | ------ | -------------- | ------------ |
+| **Pulse** | 28.93s | **35.40 MB/s** | —            |
+| aria2c    | 40.04s | 25.57 MB/s     | 1.38× slower |
+| curl      | 57.57s | 17.79 MB/s     | 1.99× slower |
+| wget      | 61.81s | 16.57 MB/s     | 2.14× slower |
 
 <details>
 <summary>Test Environment</summary>
 
-*Results averaged over 5 runs*
+_Results averaged over 5 runs_
 
-| | |
-|---|---|
-| **File** | 1GB.bin ([link](https://sin-speed.hetzner.com/1GB.bin)) |
-| **OS** | Windows 11 Pro |
-| **CPU** | AMD Ryzen 5 5600X |
-| **RAM** | 16 GB DDR4 |
-| **Network** | 360 Mbps / 45 MB/s |
+|             |                                                         |
+| ----------- | ------------------------------------------------------- |
+| **File**    | 1GB.bin ([link](https://sin-speed.hetzner.com/1GB.bin)) |
+| **OS**      | Windows 11 Pro                                          |
+| **CPU**     | AMD Ryzen 5 5600X                                       |
+| **RAM**     | 16 GB DDR4                                              |
+| **Network** | 360 Mbps / 45 MB/s                                      |
 
 Run your own: `python benchmark.py -n 5`
+
 </details>
 
 ## Browser Extension

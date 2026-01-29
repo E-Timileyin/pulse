@@ -1,0 +1,16 @@
+surge
+debug.log
+.python-version
+pyproject.toml
+uv.lock
+speed_graph.png
+worker_speeds.png
+*.json
+logs/
+downloads/
+*.pyc
+grab_bench*
+# Added by goreleaser init:
+dist/
+build/
+.github_token

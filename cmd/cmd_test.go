@@ -96,7 +96,7 @@ func TestSaveAndRemoveActivePort(t *testing.T) {
 	saveActivePort(testPort)
 
 	// Verify file exists and contains correct port
-	portFile := filepath.Join(config.GetSurgeDir(), "port")
+	portFile := filepath.Join(config.GetPulseDir(), "port")
 	data, err := os.ReadFile(portFile)
 	if err != nil {
 		t.Fatalf("Failed to read port file: %v", err)
@@ -789,7 +789,7 @@ func TestPortFileLifecycle(t *testing.T) {
 	// Clean up first
 	removeActivePort()
 
-	portFile := filepath.Join(config.GetSurgeDir(), "port")
+	portFile := filepath.Join(config.GetPulseDir(), "port")
 
 	// Verify no port file initially
 	if _, err := os.Stat(portFile); !os.IsNotExist(err) {

@@ -113,7 +113,7 @@ func TestGetSettingsPath(t *testing.T) {
 	}
 
 	// Should be under pulse directory
-	pulseDir := GetSurgeDir()
+	pulseDir := GetPulseDir()
 	if !strings.HasPrefix(path, pulseDir) {
 		t.Errorf("Settings path should be under pulse dir. Path: %s, SurgeDir: %s", path, pulseDir)
 	}

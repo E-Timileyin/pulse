@@ -7,10 +7,10 @@ import (
 	"testing"
 )
 
-func TestGetSurgeDir(t *testing.T) {
-	dir := GetSurgeDir()
+func TestGetPulseDir(t *testing.T) {
+	dir := GetPulseDir()
 	if dir == "" {
-		t.Error("GetSurgeDir returned empty string")
+		t.Error("GetPulseDir returned empty string")
 	}
 	// Should contain "pulse" in path
 	if !strings.Contains(strings.ToLower(dir), "pulse") {
@@ -27,7 +27,7 @@ func TestGetStateDir(t *testing.T) {
 		t.Errorf("Expected path to end with 'state', got: %s", dir)
 	}
 	// State dir should be under pulse dir
-	pulseDir := GetSurgeDir()
+	pulseDir := GetPulseDir()
 	if !strings.HasPrefix(dir, pulseDir) {
 		t.Errorf("StateDir should be under SurgeDir. StateDir: %s, SurgeDir: %s", dir, pulseDir)
 	}
@@ -42,7 +42,7 @@ func TestGetLogsDir(t *testing.T) {
 		t.Errorf("Expected path to end with 'logs', got: %s", dir)
 	}
 	// Logs dir should be under pulse dir
-	pulseDir := GetSurgeDir()
+	pulseDir := GetPulseDir()
 	if !strings.HasPrefix(dir, pulseDir) {
 		t.Errorf("LogsDir should be under SurgeDir. LogsDir: %s, SurgeDir: %s", dir, pulseDir)
 	}
@@ -55,7 +55,7 @@ func TestEnsureDirs(t *testing.T) {
 	}
 
 	// Verify all directories exist
-	dirs := []string{GetSurgeDir(), GetStateDir(), GetLogsDir()}
+	dirs := []string{GetPulseDir(), GetStateDir(), GetLogsDir()}
 	for _, dir := range dirs {
 		info, err := os.Stat(dir)
 		if os.IsNotExist(err) {
@@ -70,10 +70,10 @@ func TestEnsureDirs(t *testing.T) {
 
 // Extended tests for cross-platform path handling
 
-func TestGetSurgeDir_AbsolutePath(t *testing.T) {
-	dir := GetSurgeDir()
+func TestGetPulseDir_AbsolutePath(t *testing.T) {
+	dir := GetPulseDir()
 	if !filepath.IsAbs(dir) {
-		t.Errorf("GetSurgeDir should return absolute path, got: %s", dir)
+		t.Errorf("GetPulseDir should return absolute path, got: %s", dir)
 	}
 }
 
@@ -93,10 +93,10 @@ func TestGetLogsDir_AbsolutePath(t *testing.T) {
 
 func TestPathConsistency(t *testing.T) {
 	// Multiple calls should return the same paths
-	dir1 := GetSurgeDir()
-	dir2 := GetSurgeDir()
+	dir1 := GetPulseDir()
+	dir2 := GetPulseDir()
 	if dir1 != dir2 {
-		t.Errorf("GetSurgeDir should return consistent paths: %s vs %s", dir1, dir2)
+		t.Errorf("GetPulseDir should return consistent paths: %s vs %s", dir1, dir2)
 	}
 
 	state1 := GetStateDir()
@@ -113,7 +113,7 @@ func TestPathConsistency(t *testing.T) {
 }
 
 func TestDirectoryHierarchy(t *testing.T) {
-	pulseDir := GetSurgeDir()
+	pulseDir := GetPulseDir()
 	stateDir := GetStateDir()
 	logsDir := GetLogsDir()
 
@@ -145,7 +145,7 @@ func TestPathsNoTrailingSlash(t *testing.T) {
 		name string
 		path string
 	}{
-		{"SurgeDir", GetSurgeDir()},
+		{"SurgeDir", GetPulseDir()},
 		{"StateDir", GetStateDir()},
 		{"LogsDir", GetLogsDir()},
 	}

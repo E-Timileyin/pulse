@@ -9,6 +9,7 @@
 Pulse is a blazing fast, open-source terminal (TUI) download manager built in Go. Designed for power users who prefer a keyboard-driven workflow and want full control over their downloads.
 
 ![demo](assets/demo.gif)
+![dashboard](assets/dashboard.png)
 
 ## Quick Start
 

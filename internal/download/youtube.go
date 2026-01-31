@@ -84,6 +84,31 @@ func ResolveYoutubeURL(videoURL, quality string) (string, string, error) {
 	return url, title, nil
 }
 
+// GetVideoQualities returns a list of available quality labels for a video
+func GetVideoQualities(videoURL string) ([]string, string, error) {
+	client := youtube.Client{}
+	video, err := client.GetVideo(videoURL)
+	if err != nil {
+		return nil, "", fmt.Errorf("failed to get video info: %w", err)
+	}
+
+	var qualities []string
+	seen := make(map[string]bool)
+
+	// Collect unique qualities from progressive formats
+	for _, f := range video.Formats {
+		if f.AudioChannels > 0 && f.Width > 0 && f.QualityLabel != "" {
+			if !seen[f.QualityLabel] {
+				qualities = append(qualities, f.QualityLabel)
+				seen[f.QualityLabel] = true
+			}
+		}
+	}
+
+	title := sanitizeFilename(video.Title)
+	return qualities, title, nil
+}
+
 func sanitizeFilename(name string) string {
 	invalid := []string{"/", "\\", ":", "*", "?", "\"", "<", ">", "|"}
 	for _, char := range invalid {

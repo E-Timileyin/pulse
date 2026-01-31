@@ -54,6 +54,7 @@ func (m RootModel) View() string {
 			pathLine,
 			"", // Spacer
 			lipgloss.JoinHorizontal(lipgloss.Left, labelStyle.Render("Filename:"), m.inputs[2].View()),
+			"", // Spacer
 			"", // Bottom spacer
 			"",
 			// Render dynamic help
@@ -154,6 +155,47 @@ func (m RootModel) View() string {
 			Height:      12,
 		}
 		box := modal.RenderWithBtopBox(renderBtopBox, PaneTitleStyle)
+		return m.renderModalWithOverlay(box)
+	}
+
+	if m.state == FetchingFormatsState {
+		// Show loading spinner or message
+		content := lipgloss.NewStyle().Padding(2).Render(
+			lipgloss.JoinVertical(lipgloss.Center,
+				lipgloss.NewStyle().Foreground(ColorNeonCyan).Bold(true).Render("Fetching Video Formats..."),
+				"",
+				lipgloss.NewStyle().Foreground(ColorLightGray).Render("Please wait"),
+			),
+		)
+		box := renderBtopBox(PaneTitleStyle.Render(" Please Wait "), "", content, 40, 7, ColorNeonCyan)
+		return m.renderModalWithOverlay(box)
+	}
+
+	if m.state == QualitySelectionState {
+		// Render quality selection list
+		var qualityItems []string
+		for i, q := range m.availableQualities {
+			prefix := "  "
+			style := lipgloss.NewStyle().Foreground(ColorLightGray)
+
+			if i == m.selectedQualityIdx {
+				prefix = "> "
+				style = lipgloss.NewStyle().Foreground(ColorNeonPink).Bold(true)
+			}
+
+			qualityItems = append(qualityItems, style.Render(prefix+q))
+		}
+
+		listContent := strings.Join(qualityItems, "\n")
+		// Calculate height based on number of items
+		listHeight := len(qualityItems) + 4
+		if listHeight < 10 {
+			listHeight = 10
+		}
+
+		content := lipgloss.NewStyle().Padding(1, 2).Render(listContent)
+
+		box := renderBtopBox(PaneTitleStyle.Render(" Select Quality "), "", content, 40, listHeight, ColorNeonPink)
 		return m.renderModalWithOverlay(box)
 	}
 

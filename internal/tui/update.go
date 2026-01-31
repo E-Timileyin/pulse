@@ -12,6 +12,7 @@ import (
 
 	"github.com/pulse-downloader/pulse/internal/clipboard"
 	"github.com/pulse-downloader/pulse/internal/config"
+	"github.com/pulse-downloader/pulse/internal/download"
 	"github.com/pulse-downloader/pulse/internal/download/state"
 	"github.com/pulse-downloader/pulse/internal/download/types"
 	"github.com/pulse-downloader/pulse/internal/messages"
@@ -31,6 +32,21 @@ type notificationTickMsg struct{}
 // UpdateCheckResultMsg is sent when the update check is complete
 type UpdateCheckResultMsg struct {
 	Info *version.UpdateInfo
+}
+
+// FetchFormatsMsg is sent when video formats have been fetched
+type FetchFormatsMsg struct {
+	Qualities []string
+	Title     string
+	Err       error
+}
+
+// fetchFormatsCmd performs an async fetch of video qualities
+func fetchFormatsCmd(url string) tea.Cmd {
+	return func() tea.Msg {
+		qualities, title, err := download.GetVideoQualities(url)
+		return FetchFormatsMsg{Qualities: qualities, Title: title, Err: err}
+	}
 }
 
 // notificationTickCmd waits briefly then sends a tick to check notification expiry
@@ -152,7 +168,7 @@ func (m RootModel) checkForDuplicate(url string) *DownloadModel {
 }
 
 // startDownload initiates a new download
-func (m RootModel) startDownload(url, path, filename string) (RootModel, tea.Cmd) {
+func (m RootModel) startDownload(url, path, filename, quality string) (RootModel, tea.Cmd) {
 	// Generate unique filename to avoid overwriting
 	// Note: We do this check here because it applies to ALL new downloads
 	finalFilename := m.generateUniqueFilename(path, filename)
@@ -166,6 +182,7 @@ func (m RootModel) startDownload(url, path, filename string) (RootModel, tea.Cmd
 		OutputPath: path,
 		ID:         nextID,
 		Filename:   finalFilename,
+		Quality:    quality,
 		Verbose:    false,
 		ProgressCh: m.progressChan,
 		State:      newDownload.state,
@@ -217,7 +234,16 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		return m.startDownload(msg.URL, path, msg.Filename)
+		// Check if it's a YouTube URL to trigger quality selection
+		if download.IsYoutubeURL(msg.URL) {
+			m.pendingURL = msg.URL
+			m.pendingPath = path
+			m.pendingFilename = msg.Filename
+			m.state = FetchingFormatsState
+			return m, fetchFormatsCmd(msg.URL)
+		}
+
+		return m.startDownload(msg.URL, path, msg.Filename, "")
 
 	case messages.DownloadStartedMsg:
 
@@ -410,6 +436,33 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case FetchFormatsMsg:
+		if msg.Err != nil {
+			// Failed to fetch formats, fall back to adding without quality selection
+			// Log error via debug/log
+			utils.Debug("Failed to fetch formats: %v", msg.Err)
+			m.state = DashboardState
+			// Just proceed with default quality
+			return m.startDownload(m.pendingURL, m.pendingPath, m.pendingFilename, "")
+		}
+
+		m.availableQualities = msg.Qualities
+		m.selectedQualityIdx = 0
+
+		// If no specific qualities found (e.g. non-video or parsing error), skip selection
+		if len(m.availableQualities) == 0 {
+			m.state = DashboardState
+			return m.startDownload(m.pendingURL, m.pendingPath, m.pendingFilename, "")
+		}
+
+		// Update pending filename with title if available and not already set
+		if msg.Title != "" && (m.pendingFilename == "" || m.pendingFilename == "(auto-detect)") {
+			m.pendingFilename = msg.Title
+		}
+
+		m.state = QualitySelectionState
+		return m, nil
+
 	// Handle filepicker messages for all message types when in FilePickerState
 	default:
 		if m.state == FilePickerState {
@@ -556,6 +609,9 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.inputs[1].Blur()
 				m.inputs[2].SetValue("")
 				m.inputs[2].Blur()
+				m.inputs[2].SetValue("")
+				m.inputs[2].Blur()
+				// m.inputs[3] removed
 
 				// Check clipboard for URL if setting is enabled
 				if m.Settings.General.ClipboardMonitor {
@@ -762,8 +818,8 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.filepicker.Init()
 			}
 			if key.Matches(msg, m.keys.Input.Enter) {
-				// Navigate through inputs: URL -> Path -> Filename -> Start
-				if m.focusedInput < 2 {
+				// Navigate through inputs: URL -> Path -> Filename -> Quality -> Start
+				if m.focusedInput < 3 {
 					m.inputs[m.focusedInput].Blur()
 					m.focusedInput++
 					m.inputs[m.focusedInput].Focus()
@@ -777,9 +833,16 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.inputs[0].Focus()
 					m.inputs[1].Blur()
 					m.inputs[2].Blur()
+					m.inputs[3].Blur()
 					return m, nil
 				}
 				path := m.inputs[1].Value()
+				if path == "" {
+					path = m.Settings.General.DefaultDownloadDir
+					if path == "" {
+						path = "."
+					}
+				}
 				if path == "" {
 					path = m.Settings.General.DefaultDownloadDir
 					if path == "" {
@@ -798,8 +861,17 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 
+				// If it's a YouTube URL, initiate format fetching
+				if download.IsYoutubeURL(url) {
+					m.pendingURL = url
+					m.pendingPath = path
+					m.pendingFilename = filename
+					m.state = FetchingFormatsState
+					return m, fetchFormatsCmd(url)
+				}
+
 				m.state = DashboardState
-				return m.startDownload(url, path, filename)
+				return m.startDownload(url, path, filename, "")
 			}
 
 			// Up/Down navigation between inputs
@@ -908,9 +980,14 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case DuplicateWarningState:
 			if key.Matches(msg, m.keys.Duplicate.Continue) {
-				// Continue anyway - startDownload handles unique filename generation
+				// Continue -> Check for YouTube quality selection
+				if download.IsYoutubeURL(m.pendingURL) {
+					m.state = FetchingFormatsState
+					return m, fetchFormatsCmd(m.pendingURL)
+				}
+
 				m.state = DashboardState
-				return m.startDownload(m.pendingURL, m.pendingPath, m.pendingFilename)
+				return m.startDownload(m.pendingURL, m.pendingPath, m.pendingFilename, "")
 			}
 			if key.Matches(msg, m.keys.Duplicate.Cancel) {
 				// Cancel - don't add
@@ -941,8 +1018,13 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 
 				// No duplicate (or warning disabled) - add to queue
+				if download.IsYoutubeURL(m.pendingURL) {
+					m.state = FetchingFormatsState
+					return m, fetchFormatsCmd(m.pendingURL)
+				}
+
 				m.state = DashboardState
-				return m.startDownload(m.pendingURL, m.pendingPath, m.pendingFilename)
+				return m.startDownload(m.pendingURL, m.pendingPath, m.pendingFilename, "")
 			}
 			if key.Matches(msg, m.keys.Extension.No) {
 				// Cancelled
@@ -1023,7 +1105,7 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						skipped++
 						continue
 					}
-					m, _ = m.startDownload(url, path, "")
+					m, _ = m.startDownload(url, path, "", "")
 					added++
 				}
 
@@ -1208,6 +1290,31 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state = DashboardState
 				m.UpdateInfo = nil
 				return m, nil
+			}
+			return m, nil
+
+		case QualitySelectionState:
+			if msg.String() == "esc" {
+				m.state = InputState
+				return m, nil
+			}
+			if msg.String() == "up" || msg.String() == "k" {
+				if m.selectedQualityIdx > 0 {
+					m.selectedQualityIdx--
+				}
+				return m, nil
+			}
+			if msg.String() == "down" || msg.String() == "j" {
+				if m.selectedQualityIdx < len(m.availableQualities)-1 {
+					m.selectedQualityIdx++
+				}
+				return m, nil
+			}
+			if msg.String() == "enter" {
+				// Quality selected -> start download
+				quality := m.availableQualities[m.selectedQualityIdx]
+				m.state = DashboardState
+				return m.startDownload(m.pendingURL, m.pendingPath, m.pendingFilename, quality)
 			}
 			return m, nil
 		}

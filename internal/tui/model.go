@@ -37,6 +37,8 @@ const (
 	BatchFilePickerState                      //BatchFilePickerState is 9
 	BatchConfirmState                         //BatchConfirmState is 10
 	UpdateAvailableState                      //UpdateAvailableState is 11
+	QualitySelectionState                     //QualitySelectionState is 12
+	FetchingFormatsState                      //FetchingFormatsState is 13
 )
 
 const (
@@ -106,7 +108,12 @@ type RootModel struct {
 	pendingURL      string // URL pending confirmation
 	pendingPath     string // Path pending confirmation
 	pendingFilename string // Filename pending confirmation
+	pendingQuality  string // Quality pending confirmation
 	duplicateInfo   string // Info about the duplicate
+
+	// Quality Selection
+	availableQualities []string // List of available qualities
+	selectedQualityIdx int      // Currently selected index in quality list
 
 	// Graph Data
 	SpeedHistory           []float64 // Stores the last ~60 ticks of speed data

@@ -818,8 +818,8 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, m.filepicker.Init()
 			}
 			if key.Matches(msg, m.keys.Input.Enter) {
-				// Navigate through inputs: URL -> Path -> Filename -> Quality -> Start
-				if m.focusedInput < 3 {
+				// Navigate through inputs: URL -> Path -> Filename -> Start
+				if m.focusedInput < 2 {
 					m.inputs[m.focusedInput].Blur()
 					m.focusedInput++
 					m.inputs[m.focusedInput].Focus()
@@ -833,7 +833,6 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.inputs[0].Focus()
 					m.inputs[1].Blur()
 					m.inputs[2].Blur()
-					m.inputs[3].Blur()
 					return m, nil
 				}
 				path := m.inputs[1].Value()

@@ -126,3 +126,7 @@ Contributions are welcome! Feel free to fork, make changes, and submit a pull re
 If you find Pulse useful, please consider giving it a ⭐ it helps others discover the project!
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+## Acknowledgements
+
+This project is a fork of [Surge](https://github.com/surge-downloader/surge). We thank the original authors for their work.

@@ -27,4 +27,8 @@ func Debug(format string, args ...any) {
 	if debugFile != nil {
 		fmt.Fprintf(debugFile, "[%s] %s\n", timestamp, fmt.Sprintf(format, args...))
 	}
+	// Also print to stdout if running in verbose mode (server)
+	if os.Getenv("PULSE_VERBOSE") == "true" {
+		fmt.Printf("[%s] %s\n", timestamp, fmt.Sprintf(format, args...))
+	}
 }

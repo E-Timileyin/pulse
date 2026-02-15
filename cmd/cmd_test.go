@@ -181,7 +181,8 @@ func TestHandleDownload_MethodNotAllowed(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/download", nil)
 	rec := httptest.NewRecorder()
 
-	handleDownload(rec, req)
+	handler := makeDownloadHandler(func(url, path, filename, quality string) {})
+	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusMethodNotAllowed {
 		t.Errorf("Expected 405, got %d", rec.Code)
@@ -192,7 +193,8 @@ func TestHandleDownload_InvalidJSON(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/download", bytes.NewBufferString("not json"))
 	rec := httptest.NewRecorder()
 
-	handleDownload(rec, req)
+	handler := makeDownloadHandler(func(url, path, filename, quality string) {})
+	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("Expected 400, got %d", rec.Code)
@@ -207,7 +209,8 @@ func TestHandleDownload_MissingURL(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/download", bytes.NewBufferString(body))
 	rec := httptest.NewRecorder()
 
-	handleDownload(rec, req)
+	handler := makeDownloadHandler(func(url, path, filename, quality string) {})
+	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("Expected 400, got %d", rec.Code)
@@ -222,7 +225,8 @@ func TestHandleDownload_EmptyURL(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/download", bytes.NewBufferString(body))
 	rec := httptest.NewRecorder()
 
-	handleDownload(rec, req)
+	handler := makeDownloadHandler(func(url, path, filename, quality string) {})
+	handler.ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusBadRequest {
 		t.Errorf("Expected 400, got %d", rec.Code)
@@ -245,7 +249,8 @@ func TestHandleDownload_PathTraversal(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/download", bytes.NewBufferString(tt.body))
 			rec := httptest.NewRecorder()
-			handleDownload(rec, req)
+			handler := makeDownloadHandler(func(url, path, filename, quality string) {})
+			handler.ServeHTTP(rec, req)
 
 			if rec.Code != http.StatusBadRequest {
 				t.Errorf("Expected 400, got %d", rec.Code)
@@ -511,7 +516,7 @@ func TestStartHTTPServer_HealthEndpoint(t *testing.T) {
 	port := ln.Addr().(*net.TCPAddr).Port
 
 	// Start server in background
-	go startHTTPServer(ln, port)
+	go startHTTPServer(ln, port, func(url, path, filename, quality string) {}, "")
 
 	// Give server time to start
 	time.Sleep(50 * time.Millisecond)
@@ -547,7 +552,7 @@ func TestStartHTTPServer_NoCORSHeaders(t *testing.T) {
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
 
-	go startHTTPServer(ln, port)
+	go startHTTPServer(ln, port, func(url, path, filename, quality string) {}, "")
 	time.Sleep(50 * time.Millisecond)
 
 	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/health", port))
@@ -568,7 +573,7 @@ func TestStartHTTPServer_OptionsRequest(t *testing.T) {
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
 
-	go startHTTPServer(ln, port)
+	go startHTTPServer(ln, port, func(url, path, filename, quality string) {}, "")
 	time.Sleep(50 * time.Millisecond)
 
 	req, _ := http.NewRequest(http.MethodOptions, fmt.Sprintf("http://127.0.0.1:%d/download", port), nil)
@@ -590,7 +595,7 @@ func TestStartHTTPServer_DownloadEndpoint_MethodNotAllowed(t *testing.T) {
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
 
-	go startHTTPServer(ln, port)
+	go startHTTPServer(ln, port, func(url, path, filename, quality string) {}, "")
 	time.Sleep(50 * time.Millisecond)
 
 	// GET should not be allowed
@@ -612,7 +617,7 @@ func TestStartHTTPServer_DownloadEndpoint_BadRequest(t *testing.T) {
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
 
-	go startHTTPServer(ln, port)
+	go startHTTPServer(ln, port, func(url, path, filename, quality string) {}, "")
 	time.Sleep(50 * time.Millisecond)
 
 	// POST with invalid JSON
@@ -638,7 +643,7 @@ func TestStartHTTPServer_DownloadEndpoint_MissingURL(t *testing.T) {
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
 
-	go startHTTPServer(ln, port)
+	go startHTTPServer(ln, port, func(url, path, filename, quality string) {}, "")
 	time.Sleep(50 * time.Millisecond)
 
 	// POST with missing URL
@@ -664,7 +669,7 @@ func TestStartHTTPServer_NotFoundEndpoint(t *testing.T) {
 	}
 	port := ln.Addr().(*net.TCPAddr).Port
 
-	go startHTTPServer(ln, port)
+	go startHTTPServer(ln, port, func(url, path, filename, quality string) {}, "")
 	time.Sleep(50 * time.Millisecond)
 
 	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/nonexistent", port))
@@ -684,32 +689,23 @@ func TestStartHTTPServer_NotFoundEndpoint(t *testing.T) {
 // =============================================================================
 
 func TestHandleDownload_ValidRequest_NoServerProgram(t *testing.T) {
-	// Save original
-	orig := serverProgram
-	serverProgram = nil
-	defer func() { serverProgram = orig }()
-
 	body := `{"url": "https://example.com/file.zip"}`
 	req := httptest.NewRequest(http.MethodPost, "/download", bytes.NewBufferString(body))
 	rec := httptest.NewRecorder()
 
-	// This will panic because serverProgram is nil
-	// We can test that the validation passes first
-	defer func() {
-		if r := recover(); r != nil {
-			// Expected - serverProgram.Send will panic
-			t.Log("Panicked as expected with nil serverProgram")
-		}
-	}()
-
-	handleDownload(rec, req)
+	// Test that validation passes
+	handler := makeDownloadHandler(func(url, path, filename, quality string) {
+		// Mock dispatcher
+	})
+	handler.ServeHTTP(rec, req)
 }
 
 func TestHandleDownload_EmptyBody(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/download", bytes.NewBufferString(""))
 	rec := httptest.NewRecorder()
 
-	handleDownload(rec, req)
+	handler := makeDownloadHandler(func(url, path, filename, quality string) {})
+	handler.ServeHTTP(rec, req)
 
 	// Empty body causes EOF error on decode
 	if rec.Code != http.StatusBadRequest {
@@ -725,7 +721,8 @@ func TestHandleDownload_LargeURL(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	// This should handle large URLs gracefully (validation issues)
-	handleDownload(rec, req)
+	handler := makeDownloadHandler(func(url, path, filename, quality string) {})
+	handler.ServeHTTP(rec, req)
 
 	// Should fail on URL validation or JSON parsing
 	t.Logf("Response: %d", rec.Code)
@@ -736,13 +733,8 @@ func TestHandleDownload_SpecialCharactersInPath(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/download", bytes.NewBufferString(body))
 	rec := httptest.NewRecorder()
 
-	defer func() {
-		if r := recover(); r != nil {
-			t.Log("Panicked (serverProgram nil)")
-		}
-	}()
-
-	handleDownload(rec, req)
+	handler := makeDownloadHandler(func(url, path, filename, quality string) {})
+	handler.ServeHTTP(rec, req)
 }
 
 // =============================================================================
